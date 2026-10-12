@@ -1,7 +1,7 @@
 # PROYECTO PROPESA · Plataforma marítima
 
 > Documento base para seguir desarrollando el proyecto en una conversación nueva (Claude Pro, Claude Code o cualquier otra).
-> Estado: **demo funcional v0.x** · octubre 2026 · idioma de la interfaz y del trabajo: **español** (tutear al usuario).
+> Estado: **versión 1.0.0 (lista para uso diario)** · octubre 2026 · idioma de la interfaz y del trabajo: **español** (tutear al usuario).
 
 ---
 
@@ -29,10 +29,10 @@
 
 | # | Paso | Qué se hace | Quién |
 |---|---|---|---|
-| 1 | **Entrada** | Se captura el formato de recepción del lote: fecha, hora, proveedor, tanque, temperaturas, lote, kg por caja, kg por talla, kg total, kg desperdicio. | Administrador |
+| 1 | **Entrada** | Se captura el formato de recepción del lote: fecha, hora, proveedor, tanque, temperaturas, lote (mayúsculas automáticas), kg por caja en tanque, kg por talla, kg total, kg desperdicio. | Administrador |
 | 2 | **Órdenes** | Pedido de un empaque: ciudad destino → consignatario → cliente final → cajas. | Administrador |
 | 3 | **Empaque** | Al empacar cada pedido se cuentan las langostas de cada caja (lote, piezas vivas, categoría). La caja se numera ahí. | Administrador y encargado de piso |
-| 4 | **Embarque** | Por cada consignación: tallas, peso bruto, plan de carga, cierre del empaque e informe por correo. | Administrador |
+| 4 | **Embarque** | Un embarque puede juntar varias órdenes (mismo destino y consignatario). Por cada consignación: tallas, peso bruto, plan de carga, cierre del empaque e informe por correo. | Administrador |
 | 5 | **Mortalidad final** | Conteo final por lote y langostas vivas al llegar; se calcula la pérdida. | Administrador y piso (captura); admin cierra |
 
 **Hecho clave del negocio (corregido por el usuario):** en los tanques las cajas **no se numeran ni se cuentan**. Solo se conocen los **kilos por talla** del lote. El conteo de piezas por caja se hace **al empacar cada pedido**.
@@ -76,7 +76,8 @@ propesa-plataforma/
 ├── favicon.svg · icon-192.png · icon-512.png · apple-touch-icon.png
 ├── vercel.json             ← encabezados de seguridad y caché
 ├── .gitignore
-└── README.md               ← flujo, despliegue y usuarios demo
+└── README.md               ← flujo, primer uso, despliegue, pruebas y vuelta atrás
+├── CHANGELOG.md            ← cambios por versión
 ```
 
 - **Sin build, sin npm.** Se abre con doble clic o con `python3 -m http.server`.
@@ -85,29 +86,29 @@ propesa-plataforma/
 
 ---
 
-## 4. Estado actual (qué funciona y qué es demo)
+## 4. Estado actual (qué funciona y qué falta)
 
 **Funciona (todo en el navegador):**
 - Acceso con 3 usuarios y 3 roles.
 - Entrada: formulario con los campos del formato en papel, tabla igual al formato, detalle de lote, edición y eliminación.
 - Órdenes: crear orden, agregar/eliminar líneas, totales netos/brutos, avance de empaque, packing list y descarga CSV.
 - Empaque: agregar cajas por cliente (lote, piezas, categoría), numeración automática, quitar cajas, bloqueo si el empaque está cerrado.
-- Embarque: consignaciones creadas por las órdenes, plano de camión dinámico (210 hieleras), distribución por talla editable, peso bruto calculado, avisos, cierre con informe simulado.
+- Embarque: consignaciones creadas por las órdenes, plano de camión dinámico (210 hieleras), distribución por talla editable, peso bruto calculado, avisos, cierre con informe (PDF en Administración → Informes de cierre).
 - Mortalidad final: conteo final por lote, cierre de lote, langostas vivas por envío, gráficas.
 - Fotos y notas (hasta 6 por nota, cámara o galería) en Entrada, lote, Empaque, Embarque, Mortalidad final y Temperatura.
 - Panel con "Tu siguiente paso", totales, tablero de lotes y actividad.
 - Accesibilidad básica: foco visible, saltar al contenido, tamaño de letra (3 botones A), objetivos táctiles grandes, menú lateral que se oculta en teléfono.
 - Los formularios **conservan lo escrito** si hay un error.
 
-**Es demo / no existe todavía:**
-- **Los datos viven solo en `localStorage` de cada navegador.** Nada se comparte entre dispositivos.
-- Usuarios y contraseñas están en el código (visibles para cualquiera).
-- El correo del informe de empaque es **simulado**.
-- **Temperatura** muestra una tabla de ejemplo fija (constantes `TK`/`TM`); no se capturan lecturas.
+**Límites de la v1.0 / no existe todavía:**
+- **Los datos viven solo en `localStorage` de cada navegador.** Nada se comparte entre dispositivos (respaldo `.json` para pasarlos).
+- Usuarios creados en la app (Configuración inicial + Administración); contraseñas con hash SHA-256, validadas en el navegador (no es seguridad de servidor).
+- «Enviar por correo» = menú de compartir / `mailto:`; no hay servidor de correo.
+- **Temperatura:** bitácora real `ST.T` (ya no hay datos de ejemplo).
 - No hay captura de: Formato 02 (pesos por tina), encabezado del packing list (placas, chofer, horas), color de tape, temperatura de arribo.
 - El logo es una **recreación en SVG** (no el archivo original).
 
-La plataforma **inicia vacía**: solo trae los 3 usuarios. "Restablecer demo" (Administración) la vuelve a dejar vacía.
+La plataforma **inicia vacía y sin usuarios**: pide crear el Administrador (`setupView`). «Borrar los datos de este equipo» (Administración, escribir BORRAR) la regresa a ese punto.
 
 ---
 
@@ -164,7 +165,8 @@ ST = {
   B:{ [lot]:[{ c /*piezas vivas*/, k /*'R'|'V'|'B'*/, d /*índice en P*/, o /*'ordenId.lineaId'*/, seq }] }, // SOLO cajas ya empacadas
   OR:[{ id, etd, lines:[{id,city,cons /*índice en CONS*/,cli,boxes}], sh:{ 'CIUDAD|cons': índiceEnP } }],
   P:[{ n, z0, col, exp, h /*hieleras*/, z:[4 tallas en hieleras], c:[[nombre,kgUnit,cantidad]], alive, closed }], // consignaciones
-  O:[{subject,t,…}],                // correos simulados
+  O:[{subject,t,…}],                // informes de cierre
+  T:[{id,t,tank,a,s,p,by}],         // lecturas de temperatura (°F)
   M:{ [clave]:[{id,t,by,text,ref,imgs:[dataURL]}] } // fotos y notas; claves: 'recepcion','lote:<l>','emp:<oid.lid>','emb:<i>','cierre','temp'
 }
 ```
@@ -178,7 +180,7 @@ ST = {
 - **Orden:** neto = cajas × 16 kg; bruto = cajas × 20 kg. Una línea no admite más cajas empacadas que las pedidas.
 - **Consignación:** se crea una por (orden + ciudad + consignatario). Sus hieleras = cajas de la orden. Peso bruto = hieleras × (1.4 hielera + 1.5 gel + 16 producto + 0.7 caja de cartón) = **19.6 kg/hielera**.
 - **Alertas de embarque (rojo):** peso bruto ≠ formato, tallas ≠ hieleras (con tallas en 0 también avisa), cajas sin cantidad/categoría, sin cajas empacadas.
-- **Cerrar empaque (solo admin):** requiere al menos una caja empacada; genera informe simulado a usuarios con `notify`.
+- **Cerrar empaque (solo admin):** requiere al menos una caja empacada; guarda el informe de cierre (Administración → Informes de cierre, con PDF).
 - **Mortalidad por lote:** esperado (existencia) − conteo final, y su %. El conteo final no puede exceder lo esperado. **Por envío:** enviadas − vivas al llegar.
 - **Bloqueos:** con el empaque cerrado no se agregan ni quitan cajas de ese destino. No se elimina un lote con cajas empacadas para envíos. No se elimina una línea con cajas.
 - **Plano del camión:** 10 celdas (2 filas × 5 columnas) de 15/20/20/25/25 hieleras = 210. Se llena desde la cabina; avisa si se excede.
@@ -196,7 +198,7 @@ ST = {
 | Cerrar empaques y lotes | Sí | No | No |
 | Usuarios y administración | Sí | No | No |
 
-Usuarios demo: `admin@propesa.mx / admin123` · `piso@propesa.mx / piso123` · `consulta@propesa.mx / ver123`. **Nunca usar contraseñas reales en esta versión.**
+Sin usuarios precargados. Las pruebas automáticas crean sus propios usuarios de prueba (solo dentro de `pruebas/`).
 
 ---
 
@@ -262,7 +264,7 @@ Vercel: <https://vercel.com/new> → importar el repositorio → *Framework: Oth
 9. **Encabezado del packing list:** placas, chofer, teléfono, horas, temperatura del producto, tanque y temperatura. ¿Se captura en la plataforma?
 10. **Color de tape** por consignatario (aparece en el control de envío).
 11. **Temperatura:** ¿quién captura, cada cuánto y con qué alertas? (rango de almacenamiento visto: 57.7–62.2 °F; transporte 48–49 °F).
-12. **Pedidos de varios días hacia la misma ciudad y consignatario:** hoy cada orden crea su propia consignación.
+12. **Pedidos de varios días hacia la misma ciudad y consignatario:** RESUELTO en parte (oct 2026): se pueden unir varias órdenes en un embarque (`shipLinks`, `moveGroup`, `dropShip`). Pendiente confirmar si se unen órdenes de fechas distintas y cómo se factura.
 13. **Idioma:** ¿se necesita versión en inglés/chino para los socios?
 14. **Logo oficial:** subir el archivo original para reemplazar la recreación.
 
@@ -327,4 +329,81 @@ Vercel: <https://vercel.com/new> → importar el repositorio → *Framework: Oth
 
 ---
 
-*Última actualización: octubre 2026 · versión de la plataforma: demo funcional con flujo Entrada → Órdenes → Empaque → Embarque → Mortalidad final.*
+*Última actualización: octubre 2026 · versión de la plataforma: 1.0.0 con flujo Entrada → Órdenes → Empaque → Embarque → Mortalidad final.*
+
+## Cambios de la ronda del 10/oct/2026
+- Lote de recepción se escribe en MAYÚSCULAS en vivo; el campo de Entrada ahora se llama **Kg por caja en tanque** (clave interna `kgbox`).
+- **Empaque:** una fila por cada caja que falta (piezas vivas, categoría, lote), se guardan todas a la vez (`pkGrid`, `data-pk="addall"`); solo notas, sin fotos (`evid(key,title,1)`).
+- **Embarque con varias órdenes:** `o.sh['CIUDAD|cons']` puede apuntar al mismo índice de `ST.P`; `syncShipIdx` suma hieleras de todas las órdenes; `moveGroup` une/separa (mueve también `b.d` de las cajas); `dropShip` borra embarques vacíos y reindexa. UI: «Unir» en la orden, «Agregar otra orden»/«Separar» en el embarque. El nombre del embarque junta las fechas (`PVG · YISHUNHAI · 12/10 + 13/10`).
+- Ícono de Embarque = el de Recepción (camión). Entrada y Embarque hoy se ven iguales.
+- Bug corregido: las notas de Empaque y Embarque no se guardaban (la clave con `:` se cortaba en `data-ev`).
+
+## Ronda del 10/oct/2026 (tarde): PDF, vistas y plan de sincronización
+**Decisiones del usuario:** la copia web será **Supabase** (**no conectar la cuenta todavía**); capturan **varias tablets** y además hay gente que **solo consulta** (computadora o celular, la vista debe adaptarse); hay internet **casi siempre**; el archivo final de cada paso es un **PDF**, y **ese mismo PDF es el que se manda por correo**.
+
+**Hecho:**
+- Generador de PDF propio (`PdfRep`, `pdfEntrada/Ordenes/Empaque/Embarque/Embarques/Mort`; Helvetica WinAnsi con métricas reales, logo en JPEG, tablas con encabezado repetido, paginación). Botones `data-pdf="dl|mail:<tipo>:<arg>"` en cada paso (`pdfBar`). `Enviar por correo` usa Web Share con archivo (tablet/celular) y, si no existe, descarga + `mailto:` con los usuarios marcados «Recibe informes».
+- El correo simulado del cierre trae `pn` (nombre del embarque) y `att` (nombre del PDF); Administración permite descargar ese PDF.
+- Vistas: revisadas a 390, 820 y 1440 px; en celular las filas de Empaque se vuelven tarjetas.
+- Administración → «Datos y respaldo»: respaldo y restauración `.json`.
+- `supabase/schema.sql`: tablas con UUID, RLS por rol (admin/piso/consulta), realtime y bucket privado `reportes`. **No se ha aplicado.**
+
+### Sincronización (pendiente, requiere conectar la cuenta)
+Hoy cada tablet tiene sus propios datos. Para compartir hay que cambiar antes el modelo de la app:
+1. **IDs estables:** hoy los embarques se identifican por su posición en `ST.P`, las órdenes/líneas con `max+1` y las cajas con `++BN`; dos tablets chocarían. Pasar a UUID (o `Date.now()+aleatorio`) y que `b.d` y `o.sh` apunten a ids, no a índices.
+2. **Local primero:** seguir guardando en localStorage y mandar los cambios a una cola; subirlos cuando haya internet (casi siempre) y marcar «pendiente de sincronizar».
+3. **Conflictos:** cajas, movimientos y notas solo se agregan (no chocan); órdenes, embarques y lotes se editan por campo con «último cambio gana» y `updated_at`.
+4. **Usuarios reales:** reemplazar los usuarios demo (contraseña en claro) por Supabase Auth + tabla `profiles`.
+5. **Vista de consulta:** la misma página, en solo lectura, con Realtime.
+6. **Correo con PDF:** al cerrar un embarque, subir el PDF al bucket `reportes` y mandarlo con una Edge Function (Resend o SMTP) a los usuarios con «Recibe informes». Hace falta decidir remitente/dominio.
+**Preguntas abiertas:** ¿quién puede editar una orden ya empacada? ¿Se permite capturar sin internet y sincronizar después (ya se asume que sí)? ¿Dominio y remitente del correo? ¿Los de consulta entran con correo y contraseña?
+
+## Paleta de color (10/oct/2026)
+Se aplicó `PROPESA_Color_System_Refinement.md` solo como cambio de colores (sin tocar layout ni lógica). Tokens nuevos en `:root`: `--brand-navy #0B1D59`, `--brand-blue #087DBA`, `--brand-cyan #16A6D1`, `--ok/--okb/--okf` (verde de éxito). Tema oscuro: `--bg #111827`, `--cd #1C2638`, `--ln #2D3B50`, `--ink #F1F5F9`, `--mut #A9B7CA`, `--in #243249`, `--hl #2D3B50`. `--ac` (botones, chips seleccionados) pasó de turquesa a azul océano; el verde de «Completa» ya no usa el color de marca; progreso, línea de tiempo e íconos de notas usan cian; el item activo del menú lleva una barra cian sobre un navy más claro (`#1B3680`). El encabezado, que era blanco fijo, ahora es pizarra en tema oscuro. Contrastes medidos: texto principal 13.9:1 sobre tarjeta, secundario 7.5:1, blanco sobre azul 4.5:1, cian sobre tarjeta 5.4:1, verde 6.7:1. Rojo/ámbar/verde se dejaron como estados, no como marca. Pendiente: el logo (`LGP`) conserva sus azules originales (`#0a2373`, `#0583c3`), que difieren un poco de los tokens.
+
+## Ronda del 12/oct/2026: error corregido, colores de talla y Modo piso
+- **Bug grave corregido:** las filas de Empaque usaban el atributo `data-r`, el mismo que el botón «Revertir» de movimientos. Tocar el campo de piezas de la caja 2, 3… **revertía un movimiento de recepción** (bajaba el inventario sin avisar) y la caja 1 causaba el error `reading 'lot'`. Ahora es `data-row`, `rev()` valida, y en la página del lote hay **«Anular reversa»** (admin) para deshacer reversas que no se hicieron a propósito.
+- **Colores de talla** (`SZC`, `szDot`): 491-610 Blanco · 611-850 Rojo · 851-1220 Verde · 1221-UP Amarillo; borde de 4 px en los campos y punto de color en etiquetas y encabezados.
+- **Modo piso** (`PISO`, `pisoShell`, `pisoHome`, `pisoEmp`, `pisoEnt`; rutas `piso`, `pemp[:orden.línea]`, `pent`): inspirado en la investigación de McDonald's (cero fricción, botones grandes, revelación progresiva, a prueba de errores, colores que se reconocen sin leer). El rol piso entra directo; el admin lo activa desde el menú. Preferencia por equipo en `localStorage['propesa-piso']`.
+- **Permiso nuevo `ent`:** el Encargado de piso ya puede registrar entradas (editar/eliminar lotes sigue siendo solo del admin).
+- Pendiente de validar con el piso: si prefieren capturar caja por caja con teclado (modo piso) o varias filas a la vez (vista completa); si «Cerrar embarque» y «Conteo final» también necesitan su propio flujo paso a paso (hoy abren la pantalla normal sin menú).
+- **12/oct (cont.):** el aviso rojo «X de Y cajas empacadas» (orden, Empaque, Panel) ahora es un botón que lleva al primer cliente con cajas pendientes (`pendKey`, `goPend`, `pendChip`); al completar un cliente aparece «Siguiente cliente que falta». El Modo piso ya **no es una caja a la vez**: muestra una tarjeta grande por cada caja pendiente y guarda todas juntas (reutiliza `PKD` y `data-pk="addall"`); «Poner a todas las vacías» (`data-pe="all:K"`, marca `auto`) no obliga a llenar las cajas que siguen vacías. Se quitó el teclado numérico.
+- **12/oct (cont. 2):** Modo piso → cada cliente muestra **todas** sus cajas como tarjetas en lugares fijos (`peSlots`, campo nuevo `b.ps` = lugar 1..N del cliente). Una caja se guarda sola cuando tiene piezas y categoría (`peTry`), queda en gris con ✔ y sigue en pantalla: se corrigen piezas (`.psc`, al salir del campo) o categoría (`data-pe="sk:seq:K"`) ahí mismo, o se quita con confirmación (`cf`/`rm`) y el lugar queda libre. Al completar, aparece un aviso arriba y las tarjetas no desaparecen. Ya no hay botón «Guardar cajas» en piso. La vista completa sigue con su tabla + «Guardar cajas».
+- **12/oct (cont. 3):** el logo es un botón de inicio en ambos modos (`.lgb`: vista completa → `inicio`, piso → `piso`). El cambio de modo es un interruptor estilo iOS (`.iosrow`/`.iossw`, `role="switch"`, verde #34C759 encendido) en el menú lateral y en el encabezado de piso; al tocarlo, la perilla se desliza y luego toda la pantalla cambia con una transición suave (`switchMode`, View Transitions API; sin animación si el equipo pide movimiento reducido). Encabezado de piso translúcido con desenfoque, título grande y tarjetas con degradado y cuadros de ícono al estilo iOS.
+- **12/oct (cont. 4):** al iniciar sesión, el Administrador siempre entra a la vista completa y el Encargado de piso al Modo piso (antes la preferencia del equipo hacía que el admin entrara en piso).
+- **12/oct (cont. 5):** todos los avisos rojos llevan a donde se resuelven: chips «Faltan N · Empacar ›» (Panel, Empaque, Orden, Órdenes del embarque → cliente con cajas pendientes; `goLine`, `lineSt(n,t,go)`), «Sin líneas · Agregar ›» para órdenes vacías (antes decía «Faltan 0»), tarjetas KPI rojas del Panel con «Resolver ›», y cada renglón de la alerta del embarque con «Resolver ›» (`shipIssues` ahora devuelve `{t,go|jump}`; `data-jump` hace scroll al campo, lo enfoca y lo resalta). Los chips «NO SUMA» y «DISCREPANCIA» también llevan al campo a corregir.
+
+## Correcciones del /review (12/oct/2026)
+1. **Guardado fallido visible:** `save()` devuelve true/false; si la memoria se llena, aparece un aviso rojo fijo con «Descargar respaldo» y «Reintentar guardar», y ningún mensaje dice «Guardado» mientras falle (`SAVE_ERR`, `topBanners`).
+2. **Acceso:** se quitaron los botones demo del inicio de sesión; las contraseñas se guardan como hash SHA-256 con el id del usuario (`pwHash`, `migrateUsers`, migración automática de datos viejos); aviso rojo mientras haya contraseñas de prueba; mínimo 6 caracteres; no se puede dejar sin Administrador. *Sigue siendo seguridad del lado del navegador: la protección real requiere Supabase Auth.*
+3. **Fechas locales:** `dLoc()` reemplaza `toISOString()` (fecha de recepción, ETD sugerida, nombres de PDF, entrada en Modo piso).
+4. **Respaldo seguro:** `E()` escapa también la comilla simple; el tanque se escapa al mostrarse; `cleanST()` revisa campo por campo cualquier respaldo antes de cargarlo (descarta código, imágenes no válidas, índices fuera de rango, respaldos sin administrador).
+5. **Embarque cerrado:** ya no se pueden agregar líneas a un destino cuyo embarque está cerrado (aviso para reabrirlo o crear otra orden).
+6. **Número de lote:** `newLotId()` con contador `ST.RN` que solo crece.
+Pendientes sugeridos por la revisión: mover fotos a IndexedDB, índice de cajas por cliente (rendimiento), dividir `index.html` en módulos, guardar las pruebas automáticas en el repositorio.
+
+## Rendimiento (/webperf, 12/oct/2026)
+**Medición:** Lighthouse (lab) 99 celular / 100 computadora en la pantalla de entrada. Con datos simulados de un año (500 lotes, 37,400 cajas, 250 órdenes y embarques) y CPU frenada 4× (≈ tablet): Panel 7,943 → **37 ms**, Empaque 5,669 → **30 ms**, Modo piso 3,223 → **20 ms**, guardar una caja en piso 1,662 → **130 ms**.
+**Cambios:**
+- Índices por dibujo (`RX`, `rxLine`, `rxShip`, `rxMov`, `rxLinks`, `rxLot`, `rxRvd`): `render()` crea los índices una vez y `ordAssigned`, `boxesOf`, `bal`, `rcv`, `rvd`, `calc`, `shipLinks` y `R_` los usan; fuera del dibujo siguen calculando directo (los manejadores ven siempre datos frescos). Verificado: resultados idénticos al cálculo original con un año de datos. Se corrigió además un cálculo cuadrático en `calc()` (`rvd()` se rehacía por cada movimiento).
+- Listas activas (`histList`, `HIST`, `data-hist`): Entrada, Órdenes, Panel, Empaque, Embarque y Mortalidad muestran solo lo abierto o reciente (lotes 30 días, órdenes y embarques 14 días); «Ver historial» abre de 100 en 100. El tablero de lotes muestra 12 por columna. El plan de carga del camión cuenta solo embarques abiertos. Las gráficas de mortalidad muestran los últimos 20.
+**Pendiente:** `save()` reescribe todo (≈80 ms en tablet con un año): archivo de cerrados / IndexedDB / Supabase. Fotos a IndexedDB.
+
+## Panel de Ajustes (12/oct/2026, con /spec)
+Especificación aprobada en `SPEC.md`, plan en `tasks/plan.md`, pruebas en `pruebas/ajustes_t.py` (88 verificaciones) y `pruebas/e2e.py`.
+- Botón **Ajustes** en el encabezado (vista completa y Modo piso); panel lateral `#setp` fuera de `#app` (abrirlo no redibuja ni borra lo capturado), foco atrapado, Esc / ✕ / tocar fuera cierran y el foco regresa al botón.
+- **Tema:** `PREF.theme` → `data-theme` en `<html>`; sin elección sigue al equipo; script temprano en `<head>` evita el parpadeo; `color-scheme` por tema.
+- **Texto:** `html{font-size:var(--app-font-size)}` (12–20 px, inicial 15); los ~105 `font-size` en px pasaron a `rem`; se quitó el `zoom` y los botones A A A (se migra `propesa-z`); campos de captura ≥16 px; íconos y logo no cambian. Se corrigieron desbordes a 20 px (avisos largos, tarjetas de embarque, selector de consignatario).
+- **Ajustes (cambio):** la pantalla de atrás ya no se oscurece al abrir Ajustes (panel translúcido con desenfoque; en celular, hoja desde abajo de máx. 66% de alto). El tamaño del texto vuelve a 3 tamaños con deslizador: Normal 15 · Grande 17 · Muy grande 20 px (`FS_STEPS`, `fsSnap`); los valores guardados se ajustan al más cercano. 100 verificaciones en `pruebas/ajustes_t.py`.
+- **Menú de perfil (12/oct):** la barra superior ya solo tiene el buscador y un círculo con la inicial (`avatarBtn`). Al tocarlo abre `#pmenu` (fuera de `#app`): nombre, correo y rol; *Usuarios y permisos* (solo admin → Administración), *Ajustes* y *Cerrar sesión*. Igual en Modo piso. Accesible (role=menu, flechas, Esc, foco de regreso). Pruebas: `pruebas/menu_t.py`.
+- **Corrección:** el botón **Ajustes** regresa a la barra (junto al círculo) por accesibilidad; el menú del círculo queda con **Administración** (solo admin: usuarios, permisos, correos y respaldo) y **Cerrar sesión**.
+
+## /ship · versión 1.0.0 (12/oct/2026)
+Se preparó la app como versión final con el método /ship del plugin agent-skills (lista previa + revisiones de código, seguridad y pruebas).
+- **Sin rastros de demo:** sin usuarios precargados (`seed()` con `U:[]`); primer uso = **Configuración inicial** (`setupView`/`setupSave`, `data-a="s0"`) que crea el Administrador o restaura un respaldo. Se quitaron textos «demo/simulado», la tabla técnica de PostgreSQL y los datos inventados de temperatura. «Restablecer demo» → «Borrar los datos de este equipo» (escribir BORRAR). Versión visible en el menú del perfil (`Versión 1.0.0`).
+- **Temperatura real:** `ST.T`, formulario (`saveTemp`, 20–110 °F, al menos un valor), últimos 7 días con `histList('temp')`, admin elimina (`data-tqdel`), `cleanST` valida `T`.
+- **Seguridad:** `vercel.json` con CSP (`default-src 'self'`, `object-src 'none'`, `connect-src 'self'`, `base-uri 'none'`…), HSTS, Permissions-Policy (cámara solo propia), COOP, `no-cache` para `index.html`. Verificado en `pruebas/csp_t.py` (sin violaciones; un script externo de prueba sí se bloquea). Lista de contraseñas fáciles prohibidas ampliada.
+- **Accesibilidad:** Lighthouse 100 en 14 pantallas (`pruebas/accesibilidad.mjs`): botón rojo #b8321f, `--cor` #c23a26, `<th aria-label="Acciones">`, `aria-label` en conteo final, títulos h2 donde saltaban de h1 a h3.
+- **Pruebas:** todo en `pruebas/` con usuarios de prueba propios (`FIX`); `sh pruebas/correr_todo.sh` = 12 grupos, 322 verificaciones, TODO BIEN. Rendimiento con un año de datos sin cambios (Panel 36 ms, guardar caja 138 ms con CPU 4×).
+- **Documentos:** README de producción (primer uso, pruebas, actualizar y volver atrás, límites), `CHANGELOG.md`, manual de usuario actualizado (sin usuarios demo; Configuración inicial; Ajustes y menú del perfil; Temperatura; Informes de cierre; sección «Límites de la versión 1.0»).
+- **Volver atrás:** Vercel → Deployments → versión anterior → Promote to Production. Respaldo `.json` antes de cada actualización.
