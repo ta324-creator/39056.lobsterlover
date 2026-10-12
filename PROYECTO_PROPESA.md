@@ -407,3 +407,6 @@ Se preparó la app como versión final con el método /ship del plugin agent-ski
 - **Pruebas:** todo en `pruebas/` con usuarios de prueba propios (`FIX`); `sh pruebas/correr_todo.sh` = 12 grupos, 322 verificaciones, TODO BIEN. Rendimiento con un año de datos sin cambios (Panel 36 ms, guardar caja 138 ms con CPU 4×).
 - **Documentos:** README de producción (primer uso, pruebas, actualizar y volver atrás, límites), `CHANGELOG.md`, manual de usuario actualizado (sin usuarios demo; Configuración inicial; Ajustes y menú del perfil; Temperatura; Informes de cierre; sección «Límites de la versión 1.0»).
 - **Volver atrás:** Vercel → Deployments → versión anterior → Promote to Production. Respaldo `.json` antes de cada actualización.
+
+## Documentación del repositorio (12/oct/2026)
+Se agregaron `CLAUDE.md`, `AGENTS.md`, `.claude/settings.json` y la carpeta `docs/` (PRODUCTO, UX, BRAND, ARQUITECTURA, DATOS, DECISIONES, ROADMAP, PRUEBAS, SEGURIDAD, SUPABASE, FLUJO_DE_TRABAJO, HISTORIAL y referencias). Desde ahora, la bitácora vive en `docs/HISTORIAL.md` dentro del repositorio.
